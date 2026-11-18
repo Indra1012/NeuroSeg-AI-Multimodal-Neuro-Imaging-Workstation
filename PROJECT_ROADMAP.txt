@@ -1,0 +1,253 @@
+================================================================================
+          COMPREHENSIVE BRAIN TUMOR SEGMENTATION PROJECT ROADMAP
+    Multimodal MRI U-Net with Uncertainty Mapping & Decision-Support Analysis
+================================================================================
+
+PROJECT OVERVIEW:
+This project builds a medical image analysis and decision-support research prototype
+for brain tumor segmentation from multimodal 3D MRI scans (T1, T1ce, T2, FLAIR). 
+The core contribution integrates deep learning segmentation (4-channel U-Net), 
+voxel-based tumor volume estimation ($cm^3$), Monte Carlo Dropout uncertainty 
+quantification, controlled modality ablation experiments, and spatial error-uncertainty 
+correlation analysis.
+
+SYSTEM POSITIONING & TERMINOLOGY:
+> "A medical image analysis and decision-support research prototype."
+Note: The system performs automated brain tumor mask prediction, quantitative volume 
+estimation, and model confidence mapping. It is NOT an independent diagnostic 
+system nor a clinical cancer staging tool.
+
+FEASIBILITY & SCOPE VERDICT: 
+[YES - 100% DOABLE & HIGHLY RIGOROUS]
+The scope is divided into three distinct layers:
+1. Core ML System: 4-channel input (T1+T1ce+T2+FLAIR) -> Patient-level split -> Preprocessing -> U-Net -> Tumor Segmentation.
+2. Useful Quantitative Outputs: Predicted Mask -> Dice/IoU/Precision/Recall -> Physical Voxel Tumor Volume ($cm^3$) -> MC Dropout Uncertainty Map.
+3. Research & Experimental Contribution: Modality Ablation (FLAIR vs T1+FLAIR vs T1+T2+FLAIR vs All 4) -> Uncertainty vs Error Correlation.
+
+IMMEDIATE TARGET (SATURDAY REVIEW MILESTONE):
+Focus on Phases 1 to 7 to deliver a working core training pipeline:
+Dataset Setup → 4-channel Loading (T1, T1ce, T2, FLAIR) → Preprocessing & Patient-Level Splitting → U-Net Architecture → Training Pipeline.
+
+================================================================================
+                       THREE-LAYER SYSTEM ARCHITECTURE
+================================================================================
+
+Layer 1: Core ML System
+  T1 + T1ce + T2 + FLAIR  ──>  Preprocessing  ──>  U-Net  ──>  Tumor Segmentation
+
+Layer 2: Quantitative Decision-Support Outputs
+  Predicted Mask  ──┬──> Metrics (Dice, IoU, Precision, Recall)
+                  ├──> Tumor Volume (Physical Voxel Dimensions)
+                  └──> Uncertainty Map (Monte Carlo Dropout)
+
+Layer 3: Scientific Research Experiments
+                  ┌──> Modality Comparison (FLAIR vs T1+FLAIR vs T1+T2+FLAIR vs All 4)
+  U-Net ──────────┼──> Uncertainty Quantification (Epistemic Variance & Entropy)
+                  └──> Error-Uncertainty Correlation (Pearson r, Boundary vs Core)
+
+================================================================================
+               DETAILED PHASE-BY-PHASE BREAKDOWN & MILESTONES
+================================================================================
+
+🎯 STAGE A: SATURDAY REVIEW MILESTONE (CORE PIPELINE - PHASES 1 to 7)
+--------------------------------------------------------------------------------
+
+🟢 PHASE 1 — Project Environment Setup & Workspace Architecture
+[SATURDAY REVIEW TARGET]
+Goal: Establish a clean, reproducible Python development environment and project layout.
+  - 1.1 Python environment setup (Python 3.9+ venv/conda environment).
+  - 1.2 Dependency installation (PyTorch, Torchvision, NiBabel, SimpleITK, OpenCV, Albumentations, NumPy, Pandas, Scikit-Learn, Matplotlib, Seaborn, tqdm).
+  - 1.3 Repository structure creation:
+        brain-tumor-segmentation/
+        ├── dataset/              # Raw and preprocessed NIfTI scans (.nii / .nii.gz)
+        │   ├── raw/
+        │   └── processed/
+        ├── src/                  # Core Python modules
+        │   ├── data/             # Dataloaders, dataset classes, transforms, patient split
+        │   ├── models/           # U-Net architecture, sub-modules, loss functions
+        │   ├── utils/            # Metrics, volume estimation, uncertainty helpers
+        │   └── evaluation/       # Ablation & error analysis scripts
+        ├── checkpoints/          # Saved model weights (best_model.pth)
+        ├── notebooks/            # Exploratory Data Analysis & visualization
+        ├── results/              # Evaluation metrics, ablation tables, CSV outputs
+        ├── visualizations/       # Saved slice plots, uncertainty heatmaps
+        ├── requirements.txt
+        └── README.md
+  - 1.4 Version control setup (.gitignore configured to exclude raw datasets & heavy model weights).
+
+🟢 PHASE 2 — Dataset Acquisition & Multimodal MRI Fundamentals
+[SATURDAY REVIEW TARGET]
+Goal: Acquire medical MRI data (e.g., BraTS Dataset) and establish dataset conventions.
+  - 2.1 Download BraTS / Brain Tumor MRI dataset in NIfTI format (.nii / .nii.gz).
+  - 2.2 Understanding 4 MRI Modalities:
+        * T1-weighted (T1): Anatomical structure overview.
+        * T1-Contrast Enhanced (T1ce): Highlights Gd-contrast enhancement; shows active vascular tumor borders.
+        * T2-weighted (T2): Highlights fluid signals & edema.
+        * FLAIR (Fluid Attenuated Inversion Recovery): Suppresses CSF fluid signal; highlights peritumoral edema clearly.
+  - 2.3 Ground-Truth Mask Annotations:
+        * Label 0: Background / Non-brain
+        * Label 1: Necrotic and non-enhancing tumor core (NCR/NET)
+        * Label 2: Peritumoral edema (ED)
+        * Label 4: Enhancing tumor (ET)
+        * Whole Tumor Target (WT): Merged binary target (Labels 1 + 2 + 4) vs Background.
+  - 2.4 NIfTI Metadata & Spatial Coordinates (Affine matrices, header metadata, voxel spacing in mm).
+
+🟢 PHASE 3 — MRI Data Loading & Slice Extraction Pipeline
+[SATURDAY REVIEW TARGET]
+Goal: Build loading utilities for 3D NIfTI volumes into memory.
+  - 3.1 NIfTI volume loader using `nibabel` and `SimpleITK`.
+  - 3.2 Extract 3D volume dimensions (Width x Height x Slices e.g., 240 x 240 x 155).
+  - 3.3 Slice filtering module (filtering out empty background slices, retaining slices containing brain tissue and tumor).
+  - 3.4 Multi-modal slice visualization utility (Plotting T1, T1ce, T2, FLAIR side-by-side with ground-truth mask overlay).
+
+🟢 PHASE 4 — Medical MRI Preprocessing & Intensity Normalization
+[SATURDAY REVIEW TARGET]
+Goal: Standardize MRI pixel intensities and spatial dimensions for neural network input.
+  - 4.1 Skull Stripping / Brain Masking (Ensuring background non-brain tissue is zeroed out).
+  - 4.2 Spatial Resampling & Cropping/Padding (Standardizing axial slices to 256x256).
+  - 4.3 Intensity Clipping (Clipping extreme intensity outliers between 1st and 99th percentiles).
+  - 4.4 Intensity Normalization:
+        * Z-score normalization per patient/modality over non-zero brain voxels: (x - mean) / std.
+
+🟢 PHASE 5 — Data Augmentation & Patient-Level Splitting
+[SATURDAY REVIEW TARGET]
+Goal: Ensure strict patient-level separation and data diversity.
+  - 5.1 Patient-Level Data Splitting:
+        * Split train (70%), val (15%), test (15%) STRICTLY AT THE PATIENT LEVEL to prevent slice leakage across splits.
+  - 5.2 Configure synchronized `Albumentations` transforms (applied identically to all 4 MRI modalities and ground-truth mask):
+        * Random Horizontal/Vertical Flipping, Slight Rotation (-15° to +15°), Elastic Deformations.
+
+🟢 PHASE 6 — Multimodal 4-Channel Input Tensor & PyTorch DataLoader
+[SATURDAY REVIEW TARGET]
+Goal: Combine 4 MRI modalities into a 4-channel input representation.
+  - 6.1 Tensor Stacking: Stack [T1, T1ce, T2, FLAIR] slices into shape `(4, 256, 256)`.
+  - 6.2 PyTorch `Dataset` Class (`BrainTumorDataset`): Dynamic loading of 4-channel MRI arrays and target masks.
+  - 6.3 PyTorch `DataLoader` setup with multi-processing workers, batching (batch_size = 16/32), and shuffling.
+
+🟢 PHASE 7 — U-Net Model Architecture & Combined Loss Function
+[SATURDAY REVIEW TARGET]
+Goal: Build 4-channel U-Net and establish optimization loss.
+  - 7.1 PyTorch U-Net Architecture Implementation:
+        * Encoder (Contracting Path): 4 -> 64 -> 128 -> 256 -> 512 channels (Conv2D -> BatchNorm -> ReLU -> MaxPool2D).
+        * Bottleneck: 512 -> 1024 channels.
+        * Decoder (Expanding Path): 1024 -> 512 -> 256 -> 128 -> 64 channels (UpSampling -> Skip Connection Concatenation -> Conv2D).
+        * Output Layer: 1x1 Conv2D + Sigmoid activation for binary mask output.
+  - 7.2 Combined Loss Function Implementation:
+        * `Total_Loss = BCE_Loss + Dice_Loss` (balances pixel-wise probability with spatial overlap optimization).
+  - 7.3 Verification: Synthetic batch forward pass test `(Batch, 4, 256, 256)` -> `(Batch, 1, 256, 256)`.
+
+--------------------------------------------------------------------------------
+🎯 STAGE B: POST-REVIEW CORE SYSTEM & RESEARCH EXPERIMENTS (PHASES 8 to 15)
+--------------------------------------------------------------------------------
+
+🟢 PHASE 8 — Model Training Pipeline & Optimization Loop
+[CORE POST-REVIEW]
+Goal: Train U-Net model and log performance.
+  - 8.1 Optimizer setup (AdamW, initial learning rate 1e-4) & `ReduceLROnPlateau` scheduler.
+  - 8.2 Automatic Mixed Precision (`torch.cuda.amp`) for accelerated GPU training.
+  - 8.3 Training & Validation loops: Loss tracking, Validation Dice computation.
+  - 8.4 Model Checkpointing (`best_model.pth`) based on validation Dice score & Early Stopping.
+
+🟢 PHASE 9 — Inference Engine & 3D Tumor Reconstruction
+[CORE POST-REVIEW]
+Goal: Run inference on unseen test scans and reconstruct 3D tumor predictions.
+  - 9.1 Evaluate test set using `best_model.pth`.
+  - 9.2 Probability thresholding (0.5) & morphological post-processing (removing isolated noise artifacts).
+  - 9.3 3D Volume Reconstruction: Stack predicted axial 2D slices back into 3D volume stack.
+
+🟢 PHASE 10 — Quantitative Evaluation Suite
+[CORE POST-REVIEW]
+Goal: Measure segmentation accuracy using standard medical metrics.
+  - 10.1 Dice Similarity Coefficient (DSC): Measure spatial overlap ($2|P \cap G| / (|P| + |G|)$).
+  - 10.2 Intersection over Union (IoU / Jaccard Index): $|P \cap G| / |P \cup G|$.
+  - 10.3 Precision & Recall (Sensitivity).
+  - 10.4 Automated metric evaluation script generating summary CSV reports (Mean, Std Dev).
+
+🟢 PHASE 11 — Quantitative Tumor Volume Estimation Engine
+[CORE POST-REVIEW]
+Goal: Compute physical tumor volume in cubic centimeters ($cm^3$) from 3D NIfTI metadata.
+  - 11.1 Extract voxel spacing dimensions ($dx, dy, dz$) in mm from NIfTI header affine.
+  - 11.2 Single voxel volume: $V_{\text{voxel}} = dx \times dy \times dz$ ($mm^3$).
+  - 11.3 Calculate Total Volume: $\text{Volume } (cm^3) = (\text{Tumor Voxel Count} \times V_{\text{voxel}}) / 1000$.
+  - 11.4 Volume Error Analysis: Ground-Truth volume vs Predicted volume (Absolute & Relative Error %).
+
+🟢 PHASE 12 — Monte Carlo Dropout Uncertainty Mapping
+[CORE POST-REVIEW]
+Goal: Quantify model confidence and generate spatial uncertainty maps.
+  - 12.1 Enable Monte Carlo Dropout at inference time ($N = 25$ stochastic forward passes).
+  - 12.2 Compute pixel-wise statistics:
+         * Mean Probability Map ($\mu$)
+         * Predictive Variance ($\sigma^2$) (epistemic uncertainty)
+         * Predictive Entropy ($H$)
+  - 12.3 Uncertainty Heatmap overlays (highlighting regions of low model confidence).
+
+🟢 PHASE 13 — Modality Ablation Experiments ⭐
+[CORE RESEARCH CONTRIBUTION]
+Goal: Systematically quantify the contribution of each MRI modality.
+  - 13.1 Define Modality Subsets:
+         * Exp 1: Single Modality -> FLAIR only (1-channel input)
+         * Exp 2: Dual Modality   -> T1 + FLAIR (2-channel input)
+         * Exp 3: Triple Modality -> T1 + T2 + FLAIR (3-channel input)
+         * Exp 4: Quad Modality   -> T1 + T1ce + T2 + FLAIR (4-channel Full System)
+  - 13.2 Train separate U-Net models for each subset under identical conditions.
+  - 13.3 Comparative Results Table Generation:
+         -----------------------------------------------------------------
+         Input Modalities     | Dice Score | IoU    | Precision | Recall
+         -----------------------------------------------------------------
+         FLAIR                | 0.XX       | 0.XX   | 0.XX      | 0.XX
+         T1 + FLAIR           | 0.XX       | 0.XX   | 0.XX      | 0.XX
+         T1 + T2 + FLAIR      | 0.XX       | 0.XX   | 0.XX      | 0.XX
+         T1 + T1ce + T2 + FLAIR| 0.XX       | 0.XX   | 0.XX      | 0.XX
+         -----------------------------------------------------------------
+  - 13.4 Document scientific findings (e.g., T1ce contribution to tumor core vs FLAIR for edema).
+
+🟢 PHASE 14 — Uncertainty vs. Segmentation Error Correlation Analysis ⭐
+[CORE RESEARCH CONTRIBUTION]
+Goal: Evaluate whether high uncertainty correlates with spatial segmentation errors.
+  - 14.1 Ground-Truth Error Map: $\text{Error Map} = |\text{Ground Truth Mask} - \text{Predicted Binary Mask}|$.
+  - 14.2 Quantitative Pearson Correlation ($r$) between pixel uncertainty and error locations.
+  - 14.3 Spatial Analysis: Compare uncertainty distribution at tumor boundary pixels vs central core.
+  - 14.4 Decision-support insights: Prove uncertainty maps effectively highlight regions requiring radiologist review.
+
+🟢 PHASE 15 — Research Summary Plots & Multi-Panel Visualizations
+[CORE POST-REVIEW]
+Goal: Produce publication-quality visualization figures.
+  - 15.1 Multi-Panel Grid Figures:
+         * Row 1: T1 | T1ce | T2 | FLAIR
+         * Row 2: Ground Truth Mask | Predicted Tumor Mask | Error Map | Uncertainty Heatmap
+  - 15.2 Transparent color-coded overlays on anatomical FLAIR slices.
+
+--------------------------------------------------------------------------------
+🎯 STAGE C: OPTIONAL EXTRAS / EXTENSIONS (POST-CORE / PHASE 2)
+--------------------------------------------------------------------------------
+
+🔵 PHASE 16 — Interactive Web Application Development
+[OPTIONAL EXTENSION - PHASE 2]
+Goal: Build interactive web prototype for demonstration.
+  - 16.1 Streamlit dynamic web interface for NIfTI scan upload.
+  - 16.2 Interactive slice slider, modality selector, and overlay toggles.
+  - 16.3 Decision-Support Analytics Card (Displays Tumor Volume $cm^3$, Dice, IoU, Precision, Recall live).
+
+🔵 PHASE 17 — Advanced Features & Robustness Enhancements
+[OPTIONAL EXTENSION - PHASE 2]
+Goal: Secondary features if time permits.
+  - 17.1 3D Tumor Mesh / Contour Surface Rendering (PyVista/Plotly 3D).
+  - 17.2 PDF Decision-Support Summary Report export.
+  - 17.3 95th Percentile Hausdorff Distance (HD95) metric.
+  - 17.4 Handling missing/corrupt MRI modality channels.
+
+--------------------------------------------------------------------------------
+🎯 STAGE D: DOCUMENTATION & VIVA DEFENSE PREPARATION
+--------------------------------------------------------------------------------
+
+🟢 PHASE 18 — Project Documentation & Viva Defense Setup
+[FINAL MILESTONE]
+Goal: Academic documentation and presentation artifacts.
+  - 18.1 Comprehensive `README.md` with system overview, pipeline diagrams, ablation results, and setup instructions.
+  - 18.2 Final Project Report / Thesis Document (Abstract, Literature Review, Methodology, Ablation & Uncertainty Results, Discussion).
+  - 18.3 Defense Presentation Slides (PPTX) with ablation tables, volume calculations, and visual error/uncertainty comparisons.
+  - 18.4 Viva Defense Q&A preparation (U-Net skip connections, Dice loss vs cross-entropy, patient-level splitting, MC dropout theory, modal contributions).
+
+================================================================================
+         * What is the role of T1ce vs FLAIR? (T1ce highlights active tumor blood vessels; FLAIR highlights fluid edema).
+================================================================================

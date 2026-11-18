@@ -1,0 +1,34 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Medical Datasets (Large NIfTI files - 77GB+)
+dataset/
+
+# Model Checkpoints & Large Output Files
+models/*.pth
+models/*.pt
+models/*.onnx
+checkpoints/
+*.pth
+*.pt
+*.onnx
+
+# Results & Visualizations (keep directory structure)
+results/*
+!results/.gitkeep
+visualizations/*
+!visualizations/.gitkeep
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

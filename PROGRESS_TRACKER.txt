@@ -1,0 +1,202 @@
+================================================================================
+            BRAIN TUMOR SEGMENTATION PROJECT — PROGRESS TRACKER
+================================================================================
+Last Updated: 2026-10-21 (ALL PHASES COMPLETED & VERIFIED — PROJECT FINALIZED)
+Project Status: ✅ ALL PHASES A–F COMPLETED | 25/25 TESTS PASSING | DOCS COMPLETE
+Hardware Profile: Windows 10/11 | Python 3.13 (venv) | PyTorch (CPU Inference Mode)
+Positioning: Medical Image Analysis & Decision-Support Academic Research Prototype
+
+================================================================================
+SECTION 1: VERIFIED COMPLETED FOUNDATIONS (AUDITED & TESTED IN CODE)
+================================================================================
+The following items were independently inspected, run, and verified working in code:
+
+🟢 PHASE 1 — Project Environment & Workspace Setup
+  [✓] 1.1 Python virtual environment with PyTorch, NiBabel, SimpleITK, Albumentations, Matplotlib.
+  [✓] 1.2 Directory layout established (`src/`, `dataset/raw/`, `checkpoints/`, `results/`, `visualizations/`).
+  [✓] 1.3 `requirements.txt` configured with core dependencies.
+
+🟢 PHASE 2 — Multimodal MRI Dataset & Label Conventions
+  [✓] 2.1 394 BraTS NIfTI patient volumes present in `dataset/raw/` (369 train, 20 val, 5 synth).
+  [✓] 2.2 4 Modalities integrated: T1, T1ce, T2, FLAIR (`.nii` / `.nii.gz`).
+  [✓] 2.3 Whole Tumor (WT) binary target extraction: BraTS Labels 1 (NCR), 2 (ED), 4 (ET) -> 1.0; Background -> 0.0.
+  [✓] 2.4 Voxel spacing ($dx, dy, dz$) extraction from NIfTI affine matrix (`src/utils/volume.py`).
+
+🟢 PHASE 3 — MRI Data Loading & Slice Extraction Pipeline
+  [✓] 3.1 3D NIfTI volume loading via `nibabel`.
+  [✓] 3.2 Axial slice extraction with non-zero brain & tumor slice indexing (`src/data/loader.py`).
+  [✓] 3.3 Patient-level splitting: 275 Train (16,677 slices), 59 Val (3,754 slices), 60 Test (3,505 slices).
+
+🟢 PHASE 4 — U-Net Model Architecture & Loss Function
+  [✓] 4.1 PyTorch 2D U-Net with 4-channel input, 64-512 features, bottleneck 1024, `Dropout2d(0.2)` (`src/models/unet.py`).
+  [✓] 4.2 Combined BCE + Dice loss function (`CombinedBCEDiceLoss` in `src/models/losses.py`).
+  [✓] 4.3 Verified forward and backward pass sanity check via `scripts/test_pipeline.py` (Exit Code 0).
+
+🟢 PHASE 5 — Model Checkpoints & 3D Inference Engine
+  [✓] 5.1 Model checkpoint loaded from `checkpoints/best_model.pth` (`val_dice: 0.6956`).
+  [✓] 5.2 3D volume inference engine (`BraTSInferenceEngine` in `src/models/inference.py`).
+  [✓] 5.3 Live test executed on `BraTS20_Training_001` via `scripts/evaluate_patient.py`:
+          - Dice Similarity Coefficient: 0.8947
+          - IoU (Jaccard Index): 0.8095
+          - Predicted Tumor Volume: 238.04 cm³ (Voxel spacing: 1.0 x 1.0 x 1.0 mm)
+
+🟢 PHASE 6 — Monte Carlo Dropout Uncertainty Quantification
+  [✓] 6.1 Test-time MC Dropout engine with $N=25$ stochastic forward passes (`src/models/uncertainty.py`).
+  [✓] 6.2 Pixel-wise Predictive Variance ($\sigma^2$) epistemic uncertainty calculation.
+  [✓] 6.3 Pixel-wise Predictive Entropy ($H$) calculation.
+
+🟢 PHASE 7 — Error–Uncertainty Correlation Analysis
+  [✓] 7.1 Quantitative Pearson correlation ($r$) between MC uncertainty and actual segmentation errors.
+  [✓] 7.2 Results documented in `results/correlation/correlation_results.csv` and visualization plot.
+
+================================================================================
+SECTION 2: AUDIT FINDINGS & DISCREPANCIES (WHAT WAS BROKEN OR MISSING)
+================================================================================
+The following items were previously claimed or present in prototype form but contain bugs or gaps:
+
+🔴 G.1 External MRI Upload Missing:
+      `README.md` claimed NIfTI upload was supported, but `app.py` only scanned local `dataset/raw/BraTS20_Training_*` folders.
+🔴 G.2 Dashboard Volume Bug:
+      `app.py` line 334 calculated total tumor volume from ground-truth mask `volumes.get('seg')`, NOT from model prediction.
+🔴 G.3 Preprocessing Discrepancy:
+      `transforms.py` applied 1st–99th percentile intensity clipping before Z-score, but `inference.py` omitted percentile clipping.
+🔴 G.4 Synthetic Ablation Summary:
+      `results/ablation/ablation_summary.csv` was written from a hardcoded dictionary rather than dynamic evaluation of saved weights.
+🔴 G.5 Absence of Automated Test Suite:
+      No `tests/` directory or `pytest` suite existed for input validation, edge cases, or regression prevention.
+🔴 G.6 Unimplemented Extensions:
+      Interactive 3D tumor mesh rendering (Phase 17.1) and downloadable PDF clinical report (Phase 17.2) were unaddressed.
+
+================================================================================
+SECTION 3: UPCOMING ROADMAP & DETAILED IMPLEMENTATION PHASES
+================================================================================
+The following phases represent the active engineering work plan:
+
+--------------------------------------------------------------------------------
+🎯 PHASE B — Make External MRI Input Work Reliably (STEP 1: CURRENT FOCUS)
+--------------------------------------------------------------------------------
+Goal: Build a production-grade external MRI study upload, validation, and inference pipeline.
+  [✓] B.1 Implement `src/data/upload_validator.py` with modular validation functions:
+        - Extension verification (`.nii`, `.nii.gz`).
+        - File size guard (max 150MB per modality to protect system RAM).
+        - Explicit 4-modality matching (T1, T1ce, T2, FLAIR) with auto-detection from filename.
+        - Strict 3D dimension parity check across all 4 volumes (e.g. all must match exactly in H, W, D).
+        - Spatial affine matrix and voxel resolution consistency check (within floating-point tolerance).
+        - Corrupt file, empty data, NaN/Inf value detection.
+        - Brain tissue verification (checks for non-zero voxels).
+  [✓] B.2 Safe Temporary Session Workspace:
+        - Isolated session directory creation in system temp for upload processing.
+        - Automatic cleanup on session reset/completion without leaving lingering scan copies.
+        - Absolute path suppression (no sensitive local paths leaked to UI or logs).
+  [✓] B.3 Harmonize Preprocessing Pipeline:
+        - Align `src/models/inference.py` with `src/data/transforms.py` (percentile clipping 1-99% + brain Z-score).
+  [✓] B.4 Decouple Ground-Truth Metric Dependencies:
+        - Calculate physical tumor volume ($cm^3$) strictly from model's predicted binary mask.
+        - Display ground-truth metrics (Dice, IoU, Precision, Recall, Volume Error) ONLY when a verified reference mask is uploaded.
+  [✓] B.5 3D Volume Reconstruction & Slice Navigator Integration:
+        - Support both local dataset patient selection and uploaded external study seamlessly in `app.py`.
+
+--------------------------------------------------------------------------------
+🎯 PHASE C — Redesign UI as a Professional Medical-Imaging Workstation (STEP 2)
+--------------------------------------------------------------------------------
+Goal: Replace generic flashy neon/dark styling with a credible clinical research workstation interface.
+  [✓] C.1 Professional Styling & Design System:
+        - Neutral clinical workstation aesthetic (neutral light backgrounds with high-contrast dark image viewports).
+        - Clean typography (`Inter` / clean sans-serif), restrained palette, zero glowing cards or unnecessary animations.
+  [✓] C.2 Coherent Information Architecture:
+        - View 1: Clinical Study Header (Case ID, resolution, voxel spacing, compute hardware, prominent RUO disclaimer).
+        - View 2: Source Selection Wizard (Toggle between "Local Dataset Archive" and "External MRI Study Upload").
+        - View 3: Orthogonal / Axial Medical Image Viewer (Modality toggles, overlay opacity slider, uncertainty toggle).
+        - View 4: Volumetric & Model Confidence Summary (True predicted volume $cm^3$, voxel count, epistemic uncertainty).
+        - View 5: Research & Ablation Benchmark (Verified ablation table, uncertainty-error correlation).
+  [✓] C.3 Research Safety & Regulatory Disclaimers:
+        - Display prominent "Research Use Only" disclaimer (no diagnostic or clinical certification claims).
+
+--------------------------------------------------------------------------------
+🎯 PHASE D — Complete Roadmap Extensions: 3D Visualization & PDF Report (STEP 3)
+--------------------------------------------------------------------------------
+Goal: Deliver the incomplete extension features specified in the project roadmap.
+  [✓] D.1 Interactive 3D Tumor Mesh / Contour Surface Rendering:
+        - Extract 3D isosurface mesh from predicted segmentation mask using Plotly `Mesh3d` / `Isosurface`.
+        - Respect physical voxel millimeter aspect ratio ($dx, dy, dz$).
+        - Interactive 3D rotation, zoom, and pan with graceful 2D orthogonal MIP fallback projections.
+  [✓] D.2 Downloadable PDF Clinical Research Report:
+        - Structured multi-page PDF generation (using ReportLab in `src/utils/report_generator.py`).
+        - Includes study metadata, acquisition date, model checkpoint, physical volume estimate ($cm^3$), slice snapshots, uncertainty metrics, and prominent clinical disclaimer.
+
+--------------------------------------------------------------------------------
+⭐ PHASE E — Genuine Research Improvements & Analysis (STEP 4) [COMPLETED]
+--------------------------------------------------------------------------------
+Goal: Elevate the academic rigor and reproducibility of the project.
+  [✓] E.1 Modality Ablation Test Evaluation:
+        - scripts/finalize_ablation.py evaluates all 4 saved checkpoints on held-out test patients.
+        - Results written to results/ablation/ablation_summary.csv (replaces hardcoded CSV — G.4 RESOLVED).
+        - ablation_comparison.png bar chart generated in visualizations/.
+  [✓] E.2 Epistemic Uncertainty vs Error Analysis:
+        - scripts/run_correlation_analysis.py computes Pearson r between MC variance & segmentation error.
+        - Results in results/correlation/correlation_results.csv.
+  [✓] E.3 Comprehensive Future Roadmap Document:
+        - FUTURE_IMPROVEMENTS.md authored with 7 ranked proposals (Research Value, Feasibility, Est. Time,
+          Evaluation Metrics, Risks) covering: uncertainty calibration (ECE), 3-class segmentation,
+          nnU-Net preprocessing, ONNX/TensorRT, deep ensembles, cross-cohort generalization, usability study.
+
+--------------------------------------------------------------------------------
+⭐ PHASE F — Engineering Quality, Automated Tests & Verification (STEP 5) [COMPLETED]
+--------------------------------------------------------------------------------
+Goal: Ensure zero regressions and rock-solid reliability across all workflows.
+  [✓] F.1 Automated Test Suite (`tests/`) — 25 tests across 5 test files:
+        - `test_upload_validator.py` (5 tests): modality matching, missing modalities, real file validation,
+          dimension mismatch, session creation and cleanup.
+        - `test_volume_calculation.py` (9 tests): isotropic/anisotropic volume formula, zero-tumor mask,
+          volume error arithmetic, zero-GT edge case, both-zero edge case.
+        - `test_inference_preprocessing.py` (7 tests): float32 dtype, all-zero safety, background preservation,
+          Z-score mean check, percentile clipping outlier guard, NaN/Inf check, determinism.
+        - `test_extensions.py` (3 tests): 3D isosurface with/without GT, MIP projections, PDF with/without GT.
+        - `test_inference_without_gt.py` (1 test): inference without ground truth, no fabricated metrics.
+  [✓] F.2 Verification Execution:
+        - FULL SUITE RESULT: 25 passed / 0 failed / 0 errors in 88.80s
+        - Command: python -m pytest tests/ -v
+  [✓] F.3 Final Documentation & Summary:
+        - IMPLEMENTATION_SUMMARY.md created: full installation, architecture, results, test docs, limitations.
+        - README.md updated: accurate ablation table, verified test suite section, corrected Pearson r.
+================================================================================
+
+================================================================================
+   PHASE G: REAL 2D BRAIN SLICES & 3D ANATOMICAL BRAIN MESH OVERLAY
+================================================================================
+  [✓] G.1 Default Patient & 2D Slices Resolution:
+        - Fixed cohort patient ordering in app.py to prioritize real clinical cases (BraTS20_Training_*).
+        - Defaulted active patient case to BraTS20_Training_001.
+        - Distinct UI tags in sidebar: 🧠 Clinical MRI vs 🧪 Synthetic Demo.
+        - Reordered workstation tabs so "🧠 2D Slice Viewport & Overlays" and "🌐 Interactive 3D Brain & Tumor"
+          are the leading tabs on page load.
+  [✓] G.2 3D Dual-Mesh Brain & Tumor Engine:
+        - Enhanced src/utils/visualizer_3d.py (create_3d_tumor_figure) to extract brain parenchyma envelope
+          from the FLAIR volume.
+        - Rendered semi-transparent outer brain surface mesh (opacity adjustable 0.02 - 0.40).
+        - Nested vibrant tumor mass mesh (cyan / rose) and reference ground truth (green) inside brain shell.
+        - Pre-inference 3D brain surface preview enabled before whole-volume segmentation.
+  [✓] G.3 Automated Verification Suite:
+        - Added tests/test_visualizer_3d.py (5 tests covering dual-mesh, brain-alone, toggle, GT, and MIP).
+        - Test Suite Status: 30 / 30 PASSED (Exit Code 0 in 54.37s).
+
+================================================================================
+   FINAL PROJECT STATUS SUMMARY
+================================================================================
+
+  Automated Tests:       30 / 30 PASSED (Exit Code 0)
+  Ablation CSV:          Real checkpoint evaluation (finalize_ablation.py)
+  Inference Engine:      Verified on BraTS20_Training_001 (Dice=0.8947, IoU=0.8095)
+  Uncertainty Engine:    MC Dropout N=25, Pearson r=0.62 vs error
+  3D Visualization:      Dual-Mesh Brain + Tumor Isosurface + MIP projections (Plotly)
+  PDF Report:            Multi-page structured PDF (ReportLab)
+  External Upload:       Full validation pipeline (upload_validator.py)
+  Documentation:         README.md, IMPLEMENTATION_SUMMARY.md, FUTURE_IMPROVEMENTS.md
+  Checkpoints:
+    - checkpoints/best_model.pth         (full 4-ch, val_dice=0.6956)
+    - results/ablation/best_all_4.pth    (val_dice=0.6842)
+    - results/ablation/best_flair_only.pth
+    - results/ablation/best_t1_flair.pth
+    - results/ablation/best_t1_t2_flair.pth
+================================================================================
+
